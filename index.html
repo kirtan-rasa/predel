@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ПРЕДЕЛ — метроном без ограничений</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0b0d; --bg2:#111318; --glow:#252932;
+  --panel-hi:#20232a; --panel-mid:#181a1f; --panel-lo:#111317; --panel-line:#343840;
+  --surface:#17191e; --surface-2:#0f1115; --surface-3:#202329; --strip:#0d0f12;
+  --line:#30343c; --line-2:#363a42; --line-3:#25282e;
+  --text:#e9ebee; --dim:#858b95; --dim-2:#70767f;
+  --btn-hi:#25282e; --btn-lo:#181a1f; --btn-text:#b8bdc5;
+  --dial-track:#2a2d34; --dial-tick:#737984; --dial-tick-2:#3d4149;
+  --dial-label:#777d87; --needle:#f5f6f7; --hub:#111318; --hub-ring:#4a4f58;
+  --lcd:#080a0d; --lcd-line:#383c44;
+  --accent:#ff6a2a; --accent2:#ff9a62; --teal:#43d7c3; --danger:#ff4c4c;
+  --shadow:0 24px 60px rgba(0,0,0,.55);
+}
+:root[data-theme="light"]{
+  --bg:#d7d9dc; --bg2:#c5c8cc; --glow:#ffffff;
+  --panel-hi:#f6f7f8; --panel-mid:#eaebee; --panel-lo:#dfe2e5; --panel-line:#c2c6cc;
+  --surface:#edeff1; --surface-2:#f9fafb; --surface-3:#e3e6e9; --strip:#e6e9ec;
+  --line:#b9bdc3; --line-2:#c6cad0; --line-3:#d3d6da;
+  --text:#202328; --dim:#686e76; --dim-2:#6b7178;
+  --btn-hi:#fdfdfd; --btn-lo:#e5e8eb; --btn-text:#3a3f47;
+  --dial-track:#c6cad0; --dial-tick:#565c65; --dial-tick-2:#a7acb3;
+  --dial-label:#565c65; --needle:#23272d; --hub:#eceef0; --hub-ring:#8b9199;
+  --lcd:#15181d; --lcd-line:#3a3f47;
+  --accent:#d94f19; --accent2:#f07842; --teal:#087d70; --danger:#d43a3a;
+  --shadow:0 20px 44px rgba(25,28,32,.20);
+}
+:root[data-theme="dark"]{color-scheme:dark}
+:root[data-theme="light"]{color-scheme:light}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){color-scheme:dark}
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg)}
+body{
+  color:var(--text);font-family:Arial,Helvetica,sans-serif;
+  min-height:100vh;display:flex;justify-content:center;align-items:flex-start;
+  padding:20px 12px 36px;
+  background:
+    radial-gradient(500px 300px at 50% -100px,var(--glow) 0,transparent 68%),
+    linear-gradient(180deg,var(--bg2),var(--bg));
+}
+.stage{width:100%;max-width:420px}
+
+.nameplate{
+  height:46px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 6px 12px;color:var(--text)
+}
+.nameplate>div:first-child{display:flex;align-items:center;gap:14px}
+.nameplate .brand{
+  font-size:18px;font-weight:900;letter-spacing:.13em;
+  padding-right:14px;border-right:1px solid var(--line)
+}
+.nameplate .brand span{color:var(--accent)}
+.nameplate .tagline{
+  margin:0;color:var(--dim);font-size:10px;letter-spacing:.09em;text-transform:uppercase
+}
+.theme-toggle{
+  width:34px;height:28px;border:1px solid var(--line);border-radius:5px;
+  background:linear-gradient(var(--btn-hi),var(--btn-lo));color:var(--text);cursor:pointer;
+  font-size:14px;display:flex;align-items:center;justify-content:center;
+}
+.theme-toggle:hover{border-color:var(--accent)}
+
+.panel{
+  position:relative;padding:0;overflow:hidden;border:1px solid var(--panel-line);border-radius:9px;
+  background:linear-gradient(180deg,var(--panel-hi) 0%,var(--panel-mid) 48%,var(--panel-lo) 100%);
+  box-shadow:var(--shadow),0 0 0 1px rgba(255,255,255,.025) inset;
+}
+.panel::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:3px;z-index:2;
+  background:linear-gradient(90deg,transparent 0,var(--accent) 20%,var(--accent2) 50%,var(--accent) 80%,transparent 100%);
+  opacity:.9
+}
+.readout-section{
+  position:relative;display:grid;grid-template-columns:1fr auto 1fr;
+  grid-template-rows:auto auto;align-items:center;justify-items:center;
+  gap:7px 14px;padding:17px 20px 12px;border-bottom:1px solid var(--line-3);
+  background:linear-gradient(180deg,var(--panel-hi),var(--panel-mid))
+}
+.readout-section:before{
+  content:"TEMPO / MASTER";position:absolute;left:20px;top:7px;
+  font-size:8px;font-weight:bold;letter-spacing:.18em;color:var(--dim-2)
+}
+.digital-display{
+  grid-column:2;grid-row:1;display:flex;align-items:baseline;gap:9px;padding:4px 10px;
+  border:1px solid var(--lcd-line);border-radius:4px;background:var(--lcd);
+  box-shadow:inset 0 2px 8px #000,0 1px 0 rgba(255,255,255,.04);
+}
+.bpm-number{
+  width:4.3ch;border:0;outline:0;background:transparent;color:var(--accent);
+  font:700 38px/1 "Courier New",monospace;text-align:right;letter-spacing:.03em;
+  text-shadow:0 0 14px rgba(255,106,42,.22);font-variant-numeric:tabular-nums
+}
+.panel.extreme .bpm-number{color:var(--danger);text-shadow:0 0 14px rgba(255,76,76,.3)}
+.bpm-unit{font-size:10px;color:var(--dim-2);font-weight:bold;letter-spacing:.12em}
+.sub-readout{
+  grid-column:1/-1;grid-row:2;display:flex;gap:8px;align-items:center;
+  font:10px/1 "Courier New",monospace;color:var(--dim-2);
+  text-transform:uppercase;white-space:nowrap
+}
+.zone-flag{
+  position:absolute;right:20px;top:13px;margin:0;opacity:0;pointer-events:none;
+  font:700 9px/1 "Courier New",monospace;color:var(--danger);letter-spacing:.14em;
+  transition:opacity .15s ease;white-space:nowrap
+}
+.zone-flag.show{opacity:1}
+
+.dial-section{
+  position:relative;display:flex;flex-direction:column;align-items:center;
+  padding:18px 24px 7px;touch-action:none
+}
+.tach{width:min(100%,410px);height:auto;display:block;user-select:none}
+.tach .track{fill:none;stroke:var(--dial-track);stroke-width:12;stroke-linecap:butt}
+.tach .progress{fill:none;stroke:var(--accent);stroke-width:12;stroke-linecap:butt;filter:drop-shadow(0 0 5px rgba(255,106,42,.18))}
+.panel.extreme .tach .progress{stroke:var(--danger)}
+.tach .tick-major{stroke:var(--dial-tick);stroke-width:2}
+.tach .tick-minor{stroke:var(--dial-tick-2);stroke-width:1.2}
+.tach .tick-label{fill:var(--dial-label);font-family:"Courier New",monospace;font-size:9px;text-anchor:middle}
+.tach .needle{stroke:var(--needle);stroke-width:2.5;stroke-linecap:round;filter:drop-shadow(0 0 5px rgba(0,0,0,.35))}
+.tach .hub{fill:var(--hub);stroke:var(--hub-ring);stroke-width:2}
+.tach .hub-dot{fill:var(--accent);filter:drop-shadow(0 0 5px rgba(255,106,42,.5))}
+.dial-hint{font-size:9px;color:var(--dim-2);margin-top:-1px;letter-spacing:.06em;text-transform:uppercase;text-align:center}
+
+.transport{
+  display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;
+  border-top:1px solid var(--line-3);border-bottom:1px solid var(--line-3);background:var(--panel-lo)
+}
+.step-btn{
+  min-width:53px;height:30px;border:1px solid var(--line-2);border-radius:4px;
+  background:linear-gradient(var(--btn-hi),var(--btn-lo));color:var(--btn-text);
+  font:700 10px "Courier New",monospace;cursor:pointer
+}
+.step-btn:hover{border-color:var(--dial-tick);color:var(--text)}
+.step-btn:active{transform:translateY(1px)}
+.play-btn{
+  width:46px;height:34px;margin:0 7px;border:1px solid #ff824b;border-radius:5px;
+  background:linear-gradient(180deg,#ff7d3e,#d94d17);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 12px rgba(255,106,42,.22),inset 0 1px rgba(255,255,255,.25)
+}
+.play-btn svg{width:19px;height:19px}
+.panel.extreme .play-btn{background:linear-gradient(#ff5c5c,#b72f2f);border-color:#ff7777}
+
+.presets{
+  display:flex;gap:5px;overflow-x:auto;padding:8px 18px 9px;margin:0;
+  background:var(--strip);border-bottom:1px solid var(--line-3);scrollbar-width:thin
+}
+.presets::-webkit-scrollbar{height:3px}
+.presets::-webkit-scrollbar-thumb{background:var(--line-2)}
+.presets button{
+  flex:none;min-width:43px;padding:6px 9px;border:1px solid var(--line);border-radius:3px;
+  background:var(--surface);color:var(--dim-2);font:700 9px "Courier New",monospace;cursor:pointer
+}
+.presets button:hover{color:var(--text);border-color:var(--dial-tick);background:var(--surface-3)}
+.presets button.hot{color:var(--accent);border-color:#653b2b}
+
+.grid-caption{
+  margin:0;padding:10px 18px 5px;color:var(--dim-2);font-size:8px;
+  text-transform:uppercase;letter-spacing:.14em;text-align:left
+}
+.beat-grid{
+  display:flex;justify-content:flex-start;gap:7px;flex-wrap:wrap;padding:5px 18px 9px
+}
+.beat-dot{
+  width:34px;height:28px;border:1px solid var(--line);border-radius:3px;background:var(--surface);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;
+  transition:transform .08s,border-color .12s,background .12s
+}
+.beat-dot:before{content:attr(data-index);font:700 8px "Courier New",monospace;color:var(--dim-2);position:absolute;top:3px;left:5px}
+.beat-dot:after{content:"";width:5px;height:5px;border-radius:50%;background:var(--dial-tick)}
+.beat-dot:active{transform:scale(.96)}
+.beat-dot.active{box-shadow:0 0 0 1px var(--accent),0 0 10px rgba(255,106,42,.18)}
+.beat-dot[data-level="0"]{opacity:.45}
+.beat-dot[data-level="0"]::after{background:transparent;border:1px solid var(--dial-tick);width:7px;height:7px}
+.beat-dot[data-level="1"]::after{background:var(--dial-tick);width:5px;height:5px}
+.beat-dot[data-level="2"]{border-color:var(--teal)}
+.beat-dot[data-level="2"]::after{background:var(--teal);width:8px;height:8px}
+.beat-dot[data-level="3"]{border-color:var(--accent);background:rgba(255,106,42,.08)}
+.beat-dot[data-level="3"]::after{background:var(--accent);width:10px;height:10px;box-shadow:0 0 6px rgba(255,106,42,.35)}
+.beat-legend{display:flex;gap:14px;padding:0 18px 11px;font-size:8px;color:var(--dim-2)}
+.beat-legend span{display:inline-flex;align-items:center;gap:4px}
+.beat-legend i{width:6px;height:6px;border-radius:50%;display:inline-block;border:1px solid var(--dial-tick)}
+.beat-legend i.lvl0{background:transparent}
+.beat-legend i.lvl1{background:var(--dial-tick);border-color:var(--dial-tick)}
+.beat-legend i.lvl2{background:var(--teal);border-color:var(--teal)}
+.beat-legend i.lvl3{background:var(--accent);border-color:var(--accent)}
+
+.controls-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:1px;margin:0;
+  border-top:1px solid var(--line);background:var(--line)
+}
+.control{display:flex;flex-direction:column;gap:7px;padding:10px 14px;background:var(--surface)}
+.control label{font-size:8px;color:var(--dim-2);font-weight:bold;letter-spacing:.13em;text-transform:uppercase}
+.stepper{
+  display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line-2);
+  background:var(--surface-2);border-radius:3px;padding:2px;height:30px
+}
+.stepper button{border:0;background:var(--surface-3);color:var(--btn-text);width:27px;height:24px;border-radius:2px;cursor:pointer}
+.stepper button:hover{filter:brightness(1.15);color:var(--text)}
+.stepper .val{font:700 11px "Courier New",monospace;color:var(--text)}
+select{
+  border:1px solid var(--line-2);background:var(--surface-2);color:var(--text);border-radius:3px;
+  height:30px;padding:0 8px;font:10px Arial,sans-serif;cursor:pointer;outline:0
+}
+.volume-control{grid-column:1/-1}
+.volume-row{display:flex;align-items:center;gap:10px}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:3px;border-radius:0;background:var(--line-2);outline:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:18px;border-radius:2px;background:var(--accent);cursor:pointer;box-shadow:0 0 7px rgba(255,106,42,.2)}
+input[type=range]::-moz-range-thumb{width:12px;height:18px;border:0;border-radius:2px;background:var(--accent);cursor:pointer}
+.vol-icon{color:var(--dim-2);font-size:11px;width:14px;text-align:center}
+
+.tap-btn{
+  width:calc(100% - 28px);margin:11px 14px 14px;border:1px solid var(--line-2);
+  background:linear-gradient(var(--btn-hi),var(--btn-lo));color:var(--text);border-radius:4px;padding:9px;
+  font:700 11px "Courier New",monospace;letter-spacing:.16em;cursor:pointer
+}
+.tap-btn:hover{border-color:var(--dial-tick)}
+.tap-btn:active{filter:brightness(.92)}
+.tap-sub{display:inline;margin-left:10px;font:9px Arial,sans-serif;color:var(--dim-2);letter-spacing:0}
+
+button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:1px solid var(--teal);outline-offset:2px}
+
+.digital-display.pulse{animation:predelPulse .18s ease-out}
+@keyframes predelPulse{
+  0%{box-shadow:0 0 0 0 rgba(255,106,42,.4),inset 0 2px 8px #000}
+  100%{box-shadow:0 0 0 8px transparent,inset 0 2px 8px #000}
+}
+
+@media(max-width:560px){
+  body{padding:12px 8px 30px}
+  .nameplate{height:40px}
+  .nameplate .tagline{display:none}
+  .readout-section{padding-left:14px;padding-right:14px}
+  .readout-section:before{left:14px}
+  .sub-readout{font-size:9px}
+  .bpm-number{font-size:36px}
+  .zone-flag{right:14px;font-size:8px}
+  .transport{padding-left:10px;padding-right:10px}
+  .step-btn{min-width:43px}
+  .play-btn{margin:0 3px}
+  .presets,.beat-grid,.beat-legend,.grid-caption{padding-left:14px;padding-right:14px}
+  .control{padding:11px 12px}
+}
+@media(prefers-reduced-motion:reduce){
+  .step-btn,.play-btn,.beat-dot,.zone-flag{transition:none}
+  .digital-display.pulse{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="nameplate">
+    <div>
+      <div class="brand">ПРЕДЕ<span>Л</span></div>
+      <div class="tagline">метроном без ограничений</div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему" type="button">◐</button>
+  </div>
+
+  <div class="panel" id="panel">
+
+    <section class="readout-section">
+      <div class="digital-display">
+        <input class="bpm-number mono" id="bpmInput" type="text" inputmode="numeric" maxlength="4" value="0120" aria-label="Темп в ударах в минуту">
+        <span class="bpm-unit">BPM</span>
+      </div>
+      <div class="sub-readout">
+        <span id="msPerBeat">—</span>
+        <span class="divider">·</span>
+        <span id="hzPerBeat">—</span>
+      </div>
+      <div class="zone-flag" id="zoneFlag" aria-hidden="true">ПРЕДЕЛ</div>
+    </section>
+
+    <section class="dial-section">
+      <svg class="tach" viewBox="0 0 300 270" id="tachSvg" role="slider" aria-label="Регулятор темпа" aria-valuemin="1" aria-valuemax="5000" tabindex="0">
+        <path class="track" id="trackArc"></path>
+        <path class="progress" id="progressArc"></path>
+        <g id="ticksGroup"></g>
+        <circle class="hub" cx="150" cy="150" r="16"></circle>
+        <line class="needle" id="needle" x1="150" y1="150" x2="150" y2="58"></line>
+        <circle class="hub-dot" cx="150" cy="150" r="5"></circle>
+      </svg>
+      <div class="dial-hint">Потяните стрелку, тапните TAP или введите число</div>
+    </section>
+
+    <div class="transport">
+      <button class="step-btn" data-step="-100" type="button">−100</button>
+      <button class="step-btn" data-step="-10" type="button">−10</button>
+      <button class="step-btn" data-step="-1" type="button">−1</button>
+      <button class="play-btn" id="playBtn" type="button" aria-label="Старт">
+        <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="step-btn" data-step="1" type="button">+1</button>
+      <button class="step-btn" data-step="10" type="button">+10</button>
+      <button class="step-btn" data-step="100" type="button">+100</button>
+    </div>
+
+    <div class="presets" id="presets"></div>
+
+    <p class="grid-caption">Нажимайте на доли, чтобы задать акцент</p>
+    <div class="beat-grid" id="beatGrid"></div>
+    <div class="beat-legend">
+      <span><i class="lvl0"></i>без звука</span>
+      <span><i class="lvl1"></i>обычная</span>
+      <span><i class="lvl2"></i>средняя</span>
+      <span><i class="lvl3"></i>сильная</span>
+    </div>
+
+    <div class="controls-grid">
+      <div class="control">
+        <label>Такт</label>
+        <div class="stepper">
+          <button type="button" id="sigMinus" aria-label="Меньше долей">−</button>
+          <span class="val mono" id="sigVal">4/4</span>
+          <button type="button" id="sigPlus" aria-label="Больше долей">+</button>
+        </div>
+      </div>
+      <div class="control">
+        <label>Дробление</label>
+        <select id="subdivision">
+          <option value="1">Без дробления</option>
+          <option value="2">Восьмые</option>
+          <option value="3">Триоли</option>
+          <option value="4">Шестнадцатые</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Звук</label>
+        <select id="soundStyle">
+          <option value="click">Клик</option>
+          <option value="beep">Бип</option>
+          <option value="wood">Дерево</option>
+          <option value="cowbell">Ковбелл</option>
+        </select>
+      </div>
+      <div class="control volume-control">
+        <label>Громкость</label>
+        <div class="volume-row">
+          <span class="vol-icon">🔈</span>
+          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.7">
+          <span class="vol-icon">🔊</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="tap-btn" id="tapBtn" type="button">TAP<span class="tap-sub">тап-темп</span></button>
+
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var BPM_MIN = 1, BPM_MAX = 5000;
+  var LOG_MAX = Math.log(BPM_MAX);
+  var ANGLE_MIN = -135, ANGLE_MAX = 135, SWEEP = 270;
+  var CX = 150, CY = 150, R_NEEDLE = 92, R_TRACK = 100, R_TICK_OUT = 118, R_TICK_IN_MAJOR = 104, R_TICK_IN_MINOR = 110, R_LABEL = 132;
+
+  var STORAGE_KEY = "predel-metronome-v1";
+
+  var state = {
+    bpm: 120,
+    timeSig: 4,
+    subdivision: 1,
+    volume: 0.7,
+    soundStyle: "click",
+    accents: [3,1,1,1],
+    theme: null
+  };
+
+  function clamp(v,min,max){ return Math.min(max, Math.max(min,v)); }
+
+  // ---------- persistence ----------
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return;
+      var saved = JSON.parse(raw);
+      if(saved && typeof saved === "object"){
+        if(typeof saved.bpm === "number") state.bpm = clamp(Math.round(saved.bpm), BPM_MIN, BPM_MAX);
+        if(typeof saved.timeSig === "number") state.timeSig = clamp(Math.round(saved.timeSig),1,12);
+        if([1,2,3,4].indexOf(saved.subdivision) !== -1) state.subdivision = saved.subdivision;
+        if(typeof saved.volume === "number") state.volume = clamp(saved.volume,0,1);
+        if(["click","beep","wood","cowbell"].indexOf(saved.soundStyle) !== -1) state.soundStyle = saved.soundStyle;
+        if(Array.isArray(saved.accents)) state.accents = saved.accents;
+        if(saved.theme === "light" || saved.theme === "dark") state.theme = saved.theme;
+      }
+    }catch(e){ /* ignore corrupt/missing storage */ }
+  }
+  function saveState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){ /* storage unavailable, ignore */ }
+  }
+
+  // ---------- DOM refs ----------
+  var panel = document.getElementById("panel");
+  var bpmInput = document.getElementById("bpmInput");
+  var msPerBeatEl = document.getElementById("msPerBeat");
+  var hzPerBeatEl = document.getElementById("hzPerBeat");
+  var zoneFlag = document.getElementById("zoneFlag");
+  var needle = document.getElementById("needle");
+  var progressArc = document.getElementById("progressArc");
+  var trackArc = document.getElementById("trackArc");
+  var ticksGroup = document.getElementById("ticksGroup");
+  var tachSvg = document.getElementById("tachSvg");
+  var playBtn = document.getElementById("playBtn");
+  var playIcon = document.getElementById("playIcon");
+  var presetsEl = document.getElementById("presets");
+  var beatGridEl = document.getElementById("beatGrid");
+  var sigVal = document.getElementById("sigVal");
+  var subdivisionSel = document.getElementById("subdivision");
+  var soundStyleSel = document.getElementById("soundStyle");
+  var volumeInput = document.getElementById("volume");
+  var tapBtn = document.getElementById("tapBtn");
+  var themeToggle = document.getElementById("themeToggle");
+  var lcdEl = document.querySelector(".digital-display");
+
+  // ---------- geometry helpers ----------
+  function polar(cx,cy,r,deg){
+    var rad = deg * Math.PI/180;
+    return { x: cx + r*Math.sin(rad), y: cy - r*Math.cos(rad) };
+  }
+  function bpmToFrac(bpm){
+    return Math.log(Math.max(bpm,1)) / LOG_MAX;
+  }
+  function bpmToDeg(bpm){
+    return ANGLE_MIN + bpmToFrac(bpm)*SWEEP;
+  }
+  function describeArcPath(cx,cy,r,startDeg,endDeg){
+    var p1 = polar(cx,cy,r,startDeg);
+    var p2 = polar(cx,cy,r,endDeg);
+    var large = (endDeg-startDeg) > 180 ? 1 : 0;
+    return "M "+p1.x.toFixed(2)+" "+p1.y.toFixed(2)+" A "+r+" "+r+" 0 "+large+" 1 "+p2.x.toFixed(2)+" "+p2.y.toFixed(2);
+  }
+
+  // ---------- build dial ----------
+  function buildDial(){
+    trackArc.setAttribute("d", describeArcPath(CX,CY,R_TRACK,ANGLE_MIN,ANGLE_MAX));
+
+    var majors = [30,60,90,120,180,300,600,1200,2500,5000];
+    var frag = document.createDocumentFragment();
+
+    for(var i=0;i<=54;i++){
+      var frac = i/54;
+      var deg = ANGLE_MIN + frac*SWEEP;
+      var isMajorNear = majors.some(function(m){ return Math.abs(bpmToDeg(m)-deg) < 2.5; });
+      if(isMajorNear) continue;
+      var p1 = polar(CX,CY,R_TICK_OUT,deg);
+      var p2 = polar(CX,CY,R_TICK_IN_MINOR,deg);
+      var l = document.createElementNS("http://www.w3.org/2000/svg","line");
+      l.setAttribute("x1",p1.x); l.setAttribute("y1",p1.y);
+      l.setAttribute("x2",p2.x); l.setAttribute("y2",p2.y);
+      l.setAttribute("class","tick-minor");
+      frag.appendChild(l);
+    }
+
+    majors.forEach(function(bpm){
+      var deg = bpmToDeg(bpm);
+      var p1 = polar(CX,CY,R_TICK_OUT,deg);
+      var p2 = polar(CX,CY,R_TICK_IN_MAJOR,deg);
+      var l = document.createElementNS("http://www.w3.org/2000/svg","line");
+      l.setAttribute("x1",p1.x); l.setAttribute("y1",p1.y);
+      l.setAttribute("x2",p2.x); l.setAttribute("y2",p2.y);
+      l.setAttribute("class","tick-major");
+      frag.appendChild(l);
+
+      var lp = polar(CX,CY,R_LABEL,deg);
+      var t = document.createElementNS("http://www.w3.org/2000/svg","text");
+      t.setAttribute("x",lp.x); t.setAttribute("y",lp.y+3);
+      t.setAttribute("class","tick-label");
+      t.textContent = bpm;
+      frag.appendChild(t);
+    });
+
+    ticksGroup.appendChild(frag);
+  }
+
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var displayedDeg = 0;
+  var dragging = false;
+
+  function renderNeedle(deg){
+    var p = polar(CX,CY,R_NEEDLE,deg);
+    needle.setAttribute("x2", p.x.toFixed(2));
+    needle.setAttribute("y2", p.y.toFixed(2));
+    progressArc.setAttribute("d", describeArcPath(CX,CY,R_TRACK,ANGLE_MIN,deg));
+  }
+  function needleLoop(){
+    var target = bpmToDeg(state.bpm);
+    if(dragging || reduceMotion){
+      displayedDeg = target;
+    } else {
+      var diff = target - displayedDeg;
+      displayedDeg += Math.abs(diff) < 0.05 ? diff : diff*0.22;
+    }
+    renderNeedle(displayedDeg);
+    requestAnimationFrame(needleLoop);
+  }
+
+  function updateDial(){
+    tachSvg.setAttribute("aria-valuenow", state.bpm);
+    tachSvg.setAttribute("aria-valuetext", state.bpm + " BPM");
+  }
+
+  // ---------- readout ----------
+  function updateReadout(){
+    bpmInput.value = String(state.bpm).padStart(4,"0");
+
+    var ms = 60000/state.bpm;
+    msPerBeatEl.textContent = (ms >= 1000 ? Math.round(ms) : ms.toFixed(1)) + " ms";
+    hzPerBeatEl.textContent = (state.bpm/60).toFixed(2) + " Hz";
+
+    var extreme = state.bpm >= 1000;
+    panel.classList.toggle("extreme", extreme);
+    zoneFlag.classList.toggle("show", extreme);
+  }
+
+  function setBpm(v){
+    v = clamp(Math.round(v), BPM_MIN, BPM_MAX);
+    if(v === state.bpm) return;
+    state.bpm = v;
+    updateReadout();
+    updateDial();
+    saveState();
+  }
+
+  // ---------- beat grid ----------
+  var LEVEL_NAMES = ["без звука","обычная","средняя","сильная"];
+  function buildBeatGrid(){
+    beatGridEl.innerHTML = "";
+    for(var i=0;i<state.timeSig;i++){
+      var dot = document.createElement("div");
+      dot.className = "beat-dot";
+      dot.dataset.index = i;
+      var level = state.accents[i] !== undefined ? state.accents[i] : 1;
+      dot.dataset.level = level;
+      dot.setAttribute("role","button");
+      dot.setAttribute("tabindex","0");
+      dot.setAttribute("aria-label","Доля "+(i+1)+": "+LEVEL_NAMES[level]);
+      beatGridEl.appendChild(dot);
+    }
+  }
+  function cycleAccent(i){
+    var cur = state.accents[i] !== undefined ? state.accents[i] : 1;
+    var next = (cur+1) % 4;
+    state.accents[i] = next;
+    var dot = beatGridEl.querySelector('[data-index="'+i+'"]');
+    if(dot){
+      dot.dataset.level = next;
+      dot.setAttribute("aria-label","Доля "+(i+1)+": "+LEVEL_NAMES[next]);
+    }
+    saveState();
+  }
+  function ensureAccentsLength(){
+    var arr = state.accents.slice(0, state.timeSig);
+    while(arr.length < state.timeSig){
+      arr.push(arr.length === 0 ? 3 : 1);
+    }
+    state.accents = arr;
+  }
+
+  // ---------- presets ----------
+  var PRESET_VALUES = [40,60,90,120,140,180,240,300,500,1000,2000,5000];
+  function buildPresets(){
+    presetsEl.innerHTML = "";
+    PRESET_VALUES.forEach(function(v){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = v;
+      if(v >= 1000) b.classList.add("hot");
+      b.addEventListener("click", function(){ setBpm(v); });
+      presetsEl.appendChild(b);
+    });
+  }
+
+  // ---------- audio engine ----------
+  var audioCtx = null, masterGain = null;
+  var isPlaying = false;
+  var lookahead = 25.0;
+  var scheduleAheadTime = 0.1;
+  var nextNoteTime = 0.0;
+  var currentSub = 0;
+  var timerID = null;
+  var noteQueue = [];
+  var rafID = null;
+
+  function ensureAudio(){
+    if(!audioCtx){
+      var Ctor = window.AudioContext || window.webkitAudioContext;
+      if(!Ctor) return false;
+      audioCtx = new Ctor();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = state.volume;
+      masterGain.connect(audioCtx.destination);
+    }
+    if(audioCtx.state === "suspended") audioCtx.resume();
+    return true;
+  }
+
+  var FREQ_MAP = {
+    click:   { tick:850, normal:1200, medium:1450, strong:1750 },
+    beep:    { tick:880, normal:1320, medium:1560, strong:1850 },
+    wood:    { tick:700, normal:1000, medium:1220, strong:1500 },
+    cowbell: { tick:520, normal:700,  medium:800,  strong:950  }
+  };
+  var WAVE_MAP = { click:"sine", beep:"square", wood:"triangle", cowbell:"square" };
+  var PEAK_MAP = { tick:0.45, normal:0.72, medium:0.88, strong:1.0 };
+
+  function playClick(time, kind, duration){
+    var osc = audioCtx.createOscillator();
+    var env = audioCtx.createGain();
+    var style = state.soundStyle;
+    var wave = WAVE_MAP[style] || "sine";
+    var freqSet = FREQ_MAP[style] || FREQ_MAP.click;
+    var freq = freqSet[kind] || freqSet.normal;
+    osc.type = wave;
+    osc.frequency.setValueAtTime(freq, time);
+    var decay = Math.max(0.001, Math.min(duration*0.85, style==="cowbell" ? 0.09 : (kind==="strong" ? 0.045 : 0.035)));
+    if(style === "wood"){
+      osc.frequency.exponentialRampToValueAtTime(Math.max(freq*0.55,40), time+Math.min(decay,0.03));
+    }
+    var peak = PEAK_MAP[kind] || PEAK_MAP.normal;
+    env.gain.setValueAtTime(0.0001, time);
+    env.gain.exponentialRampToValueAtTime(Math.max(peak,0.0002), time+0.001);
+    env.gain.exponentialRampToValueAtTime(0.0001, time+decay);
+    osc.connect(env);
+    env.connect(masterGain);
+    osc.start(time);
+    osc.stop(time+decay+0.01);
+    osc.onended = function(){ try{ osc.disconnect(); env.disconnect(); }catch(e){} };
+  }
+
+  var ACCENT_KIND = ["", "normal", "medium", "strong"]; // index 0 (mute) is never used as a kind
+
+  function scheduleNote(subIndex, time){
+    noteQueue.push({ subIndex: subIndex, time: time });
+    var sub = state.subdivision;
+    var beatIndex = Math.floor(subIndex/sub) % state.timeSig;
+    var isBeatStart = (subIndex % sub) === 0;
+    var secondsPerSub = (60.0/state.bpm)/sub;
+    if(!isBeatStart){
+      playClick(time, "tick", secondsPerSub);
+      return;
+    }
+    var level = state.accents[beatIndex] !== undefined ? state.accents[beatIndex] : 1;
+    if(level === 0) return; // mute: this beat stays silent
+    playClick(time, ACCENT_KIND[level] || "normal", secondsPerSub);
+  }
+
+  function nextNote(){
+    var secondsPerSub = (60.0/state.bpm)/state.subdivision;
+    nextNoteTime += secondsPerSub;
+    currentSub = (currentSub+1) % (state.timeSig*state.subdivision);
+  }
+
+  function scheduler(){
+    // If the tab was suspended / throttled, don't replay every missed beat.
+    if(nextNoteTime < audioCtx.currentTime - 0.05){
+      nextNoteTime = audioCtx.currentTime + 0.02;
+      noteQueue.length = 0;
+    }
+    var guard = 0;
+    while(nextNoteTime < audioCtx.currentTime + scheduleAheadTime && guard++ < 600){
+      scheduleNote(currentSub, nextNoteTime);
+      nextNote();
+    }
+    timerID = setTimeout(scheduler, lookahead);
+  }
+
+  var lastActiveDot = null;
+  var lastPulseTime = 0;
+  function draw(){
+    if(!isPlaying) return;
+    var info = null;
+    while(noteQueue.length && noteQueue[0].time < audioCtx.currentTime){
+      info = noteQueue.shift();
+    }
+    if(info){
+      var sub = state.subdivision;
+      if((info.subIndex % sub) === 0){
+        flashBeat(Math.floor(info.subIndex/sub) % state.timeSig);
+      }
+    }
+    rafID = requestAnimationFrame(draw);
+  }
+
+  function flashBeat(beatIndex){
+    if(lastActiveDot) lastActiveDot.classList.remove("active");
+    var dot = beatGridEl.querySelector('[data-index="'+beatIndex+'"]');
+    if(dot){
+      dot.classList.add("active");
+      lastActiveDot = dot;
+    }
+    var now = performance.now();
+    if(now - lastPulseTime > 30){
+      lastPulseTime = now;
+      lcdEl.classList.remove("pulse");
+      void lcdEl.offsetWidth;
+      lcdEl.classList.add("pulse");
+    }
+  }
+
+  function start(){
+    if(!ensureAudio()) return;
+    ensureAccentsLength();
+    currentSub = 0;
+    noteQueue = [];
+    nextNoteTime = audioCtx.currentTime + 0.05;
+    isPlaying = true;
+    scheduler();
+    rafID = requestAnimationFrame(draw);
+    playIcon.innerHTML = '<rect x="6" y="5" width="4.5" height="14" rx="1"></rect><rect x="13.5" y="5" width="4.5" height="14" rx="1"></rect>';
+    playBtn.setAttribute("aria-label","Стоп");
+  }
+  function stop(){
+    isPlaying = false;
+    clearTimeout(timerID);
+    timerID = null;
+    if(rafID) cancelAnimationFrame(rafID);
+    rafID = null;
+    noteQueue = [];
+    if(lastActiveDot){ lastActiveDot.classList.remove("active"); lastActiveDot = null; }
+    playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    playBtn.setAttribute("aria-label","Старт");
+  }
+  function toggle(){ isPlaying ? stop() : start(); }
+
+  // ---------- wiring ----------
+  function initTimeSig(){
+    sigVal.textContent = state.timeSig + "/4";
+  }
+  document.getElementById("sigMinus").addEventListener("click", function(){
+    state.timeSig = clamp(state.timeSig-1,1,12);
+    ensureAccentsLength();
+    initTimeSig();
+    buildBeatGrid();
+    saveState();
+  });
+  document.getElementById("sigPlus").addEventListener("click", function(){
+    state.timeSig = clamp(state.timeSig+1,1,12);
+    ensureAccentsLength();
+    initTimeSig();
+    buildBeatGrid();
+    saveState();
+  });
+
+  beatGridEl.addEventListener("click", function(e){
+    var dot = e.target.closest(".beat-dot");
+    if(dot) cycleAccent(parseInt(dot.dataset.index,10));
+  });
+  beatGridEl.addEventListener("keydown", function(e){
+    if((e.key === "Enter" || e.key === " ") && e.target.classList.contains("beat-dot")){
+      e.preventDefault();
+      e.stopPropagation();
+      cycleAccent(parseInt(e.target.dataset.index,10));
+    }
+  });
+
+  subdivisionSel.addEventListener("change", function(){
+    state.subdivision = parseInt(subdivisionSel.value,10);
+    saveState();
+  });
+  soundStyleSel.addEventListener("change", function(){
+    state.soundStyle = soundStyleSel.value;
+    saveState();
+  });
+  volumeInput.addEventListener("input", function(){
+    state.volume = parseFloat(volumeInput.value);
+    if(masterGain) masterGain.gain.value = state.volume;
+    saveState();
+  });
+
+  // +/- buttons with press-and-hold (no double step on release)
+  document.querySelectorAll(".step-btn").forEach(function(btn){
+    var step = parseInt(btn.dataset.step,10);
+    var holdTimer = null, holdInterval = null, held = false;
+    function doStep(){ setBpm(state.bpm+step); }
+    btn.addEventListener("click", function(){
+      if(held){ held = false; return; }
+      doStep();
+    });
+    btn.addEventListener("pointerdown", function(){
+      held = false;
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(function(){
+        held = true;
+        doStep();
+        holdInterval = setInterval(doStep, 90);
+      }, 500);
+    });
+    function clearHold(){
+      clearTimeout(holdTimer);
+      clearInterval(holdInterval);
+      holdTimer = null; holdInterval = null;
+    }
+    btn.addEventListener("pointerup", clearHold);
+    btn.addEventListener("pointerleave", clearHold);
+    btn.addEventListener("pointercancel", clearHold);
+  });
+
+  playBtn.addEventListener("click", toggle);
+
+  bpmInput.addEventListener("focus", function(){ bpmInput.select(); });
+  bpmInput.addEventListener("input", function(){
+    bpmInput.value = bpmInput.value.replace(/[^0-9]/g,"").slice(0,4);
+  });
+  function commitBpmInput(){
+    var v = parseInt(bpmInput.value,10);
+    if(isNaN(v)) v = state.bpm;
+    setBpm(v);
+    updateReadout();
+  }
+  bpmInput.addEventListener("blur", commitBpmInput);
+  bpmInput.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); commitBpmInput(); bpmInput.blur(); }
+  });
+
+  // ---------- dial drag ----------
+  function angleFromPointer(clientX, clientY){
+    var rect = tachSvg.getBoundingClientRect();
+    var scaleX = 300/rect.width;
+    var scaleY = 270/rect.height;
+    var x = (clientX-rect.left)*scaleX;
+    var y = (clientY-rect.top)*scaleY;
+    var dx = x-CX, dy = y-CY;
+    return Math.atan2(dx,-dy)*180/Math.PI;
+  }
+  function bpmFromAngle(deg){
+    // deg is clockwise-from-top in range -180..180; the bottom ~90deg gap
+    // (deg > ANGLE_MAX or deg < ANGLE_MIN) snaps to the nearest dial edge.
+    if(deg > ANGLE_MAX) deg = ANGLE_MAX;
+    else if(deg < ANGLE_MIN) deg = ANGLE_MIN;
+    var frac = clamp((deg-ANGLE_MIN)/SWEEP,0,1);
+    return Math.exp(frac*LOG_MAX);
+  }
+  function handleDialPointer(e){
+    setBpm(bpmFromAngle(angleFromPointer(e.clientX, e.clientY)));
+  }
+  tachSvg.addEventListener("pointerdown", function(e){
+    dragging = true;
+    try{ tachSvg.setPointerCapture(e.pointerId); }catch(err){}
+    handleDialPointer(e);
+  });
+  tachSvg.addEventListener("pointermove", function(e){ if(dragging) handleDialPointer(e); });
+  tachSvg.addEventListener("pointerup", function(){ dragging = false; });
+  tachSvg.addEventListener("pointercancel", function(){ dragging = false; });
+  tachSvg.addEventListener("keydown", function(e){
+    if(e.key === "ArrowUp" || e.key === "ArrowRight"){ e.preventDefault(); setBpm(state.bpm + (e.shiftKey?10:1)); }
+    if(e.key === "ArrowDown" || e.key === "ArrowLeft"){ e.preventDefault(); setBpm(state.bpm - (e.shiftKey?10:1)); }
+  });
+
+  // ---------- tap tempo ----------
+  var tapTimes = [];
+  tapBtn.addEventListener("click", function(){
+    var now = performance.now();
+    if(tapTimes.length && (now - tapTimes[tapTimes.length-1] > 2000)) tapTimes = [];
+    tapTimes.push(now);
+    if(tapTimes.length > 6) tapTimes.shift();
+    if(tapTimes.length >= 2){
+      var intervals = [];
+      for(var i=1;i<tapTimes.length;i++) intervals.push(tapTimes[i]-tapTimes[i-1]);
+      var avg = intervals.reduce(function(a,b){return a+b;},0)/intervals.length;
+      setBpm(60000/avg);
+    }
+  });
+
+  // ---------- theme ----------
+  function systemPrefersDark(){
+    return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  }
+  function applyThemeIcon(){
+    var effectiveDark = state.theme === "dark" || (!state.theme && systemPrefersDark());
+    themeToggle.textContent = effectiveDark ? "☾" : "☀";
+    themeToggle.setAttribute("aria-label", effectiveDark ? "Включить светлую тему" : "Включить тёмную тему");
+  }
+  themeToggle.addEventListener("click", function(){
+    if(state.theme === "dark") state.theme = "light";
+    else if(state.theme === "light") state.theme = "dark";
+    else state.theme = systemPrefersDark() ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", state.theme);
+    applyThemeIcon();
+    saveState();
+  });
+
+  // ---------- global keyboard ----------
+  document.addEventListener("keydown", function(e){
+    if(e.code !== "Space") return;
+    if(e.target && e.target.closest &&
+       e.target.closest("input,select,textarea,button,.beat-dot,[role='slider']")) return;
+    var el = document.activeElement;
+    var tag = (el && el.tagName) || "";
+    if(tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+    e.preventDefault();
+    toggle();
+  });
+
+  // ---------- init ----------
+  function init(){
+    loadState();
+    if(state.theme) document.documentElement.setAttribute("data-theme", state.theme);
+    applyThemeIcon();
+    ensureAccentsLength();
+    subdivisionSel.value = String(state.subdivision);
+    soundStyleSel.value = state.soundStyle;
+    volumeInput.value = String(state.volume);
+    buildDial();
+    buildPresets();
+    initTimeSig();
+    buildBeatGrid();
+    updateReadout();
+    updateDial();
+    displayedDeg = bpmToDeg(state.bpm);
+    needleLoop();
+  }
+  init();
+
+})();
+</script>
+</body>
+</html>
